@@ -97,8 +97,7 @@ public class Main {
         // Komponen
         private JTabbedPane tabbedPane;
         private JComboBox<String> cbPaketMakanan;
-        private JTextField tfNamaMenu, tfHargaMenu, tfSubtotalPesanan, tfSubTotal;
-        private JSpinner spJumlahMakanan;
+        private JTextField tfNamaMenu, tfHargaMenu, tfSubtotalPesanan, tfSubTotal, tfJumlah;
         private JCheckBox[] cbMinuman;
         private JSpinner[] spJumlahMinuman;
         private JRadioButton rbDelivery, rbTakeAway;
@@ -159,11 +158,11 @@ public class Main {
             for (Menu menu : menuMakanan) cbPaketMakanan.addItem(menu.getNama());
             tfNamaMenu = new JTextField(); tfNamaMenu.setEditable(false);
             tfHargaMenu = new JTextField(); tfHargaMenu.setEditable(false);
-            spJumlahMakanan = new JSpinner(new SpinnerNumberModel(1, 1, 100, 1));
+            tfJumlah = new JTextField();
             makananPanel.add(new JLabel("Paket Makanan:")); makananPanel.add(cbPaketMakanan);
             makananPanel.add(new JLabel("Nama Menu:")); makananPanel.add(tfNamaMenu);
             makananPanel.add(new JLabel("Harga:")); makananPanel.add(tfHargaMenu);
-            makananPanel.add(new JLabel("Jumlah:")); makananPanel.add(spJumlahMakanan);
+            makananPanel.add(new JLabel("Jumlah:")); makananPanel.add(tfJumlah);
 
             JPanel minumanPanel = new JPanel();
             minumanPanel.setLayout(new BoxLayout(minumanPanel, BoxLayout.Y_AXIS));
@@ -313,8 +312,12 @@ public class Main {
 
         private void setupListeners() {
             ActionListener updateListener = e -> updateAllTotals();
-            spJumlahMakanan.addChangeListener(e -> updateAllTotals());
+
+            // === PERUBAHAN: Listener diubah dari KeyListener menjadi ActionListener ===
+            // Subtotal hanya di-update setelah menekan Enter di field Jumlah
+            tfJumlah.addActionListener(e -> updateAllTotals());
             cbPaketMakanan.addActionListener(updateListener);
+
             for (int i = 0; i < cbMinuman.length; i++) {
                 final int index = i;
                 cbMinuman[index].addActionListener(e -> {
@@ -355,11 +358,7 @@ public class Main {
             btnKeluar.addActionListener(e -> keluarAplikasi());
             btnBuatStruk.addActionListener(e -> tampilkanStruk());
 
-            // === PERUBAHAN: Listener uang bayar disederhanakan ===
-            // Setiap kali Enter ditekan, hanya akan menghitung pembayaran.
-            // Membuat struk hanya bisa dilakukan dengan klik tombol "Buat Struk".
             tfUangBayar.addActionListener(e -> performPayment());
-            // === AKHIR PERUBAHAN ===
 
             this.setFocusable(true);
             this.addKeyListener(new KeyAdapter() {
@@ -386,11 +385,22 @@ public class Main {
             int index = cbPaketMakanan.getSelectedIndex();
             if (index > 0) {
                 Menu menu = menuMakanan[index - 1];
-                int jumlah = (Integer) spJumlahMakanan.getValue();
-                transaksi.setMenuMakanan(menu, jumlah);
+                int jumlah = 0;
+                try {
+                    String jumlahText = tfJumlah.getText();
+                    if (!jumlahText.isEmpty()) {
+                        jumlah = Integer.parseInt(jumlahText);
+                    }
+                } catch (NumberFormatException e) {
+                    jumlah = 0; // Abaikan input non-numerik
+                }
+
+                if (jumlah > 0) {
+                    transaksi.setMenuMakanan(menu, jumlah);
+                    ringkasan.append(String.format("- %s x%d\n", menu.getNama(), jumlah));
+                }
                 tfNamaMenu.setText(menu.getNama());
                 tfHargaMenu.setText(currencyFormatter.format(menu.getHarga()));
-                ringkasan.append(String.format("- %s x%d\n", menu.getNama(), jumlah));
             } else {
                 tfNamaMenu.setText(""); tfHargaMenu.setText("");
             }
@@ -458,7 +468,7 @@ public class Main {
         private void bersihkanForm() {
             transaksi.reset();
             cbPaketMakanan.setSelectedIndex(0);
-            spJumlahMakanan.setValue(1);
+            tfJumlah.setText("");
             tfSubtotalPesanan.setText("");
             for (int i = 0; i < cbMinuman.length; i++) {
                 cbMinuman[i].setSelected(false); spJumlahMinuman[i].setValue(0);
